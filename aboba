@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Перевірка root-доступу
+if [[ $EUID -ne 0 ]]; then
+   echo "Запусти цей скрипт з правами root: sudo ./lab3_artix.sh"
+   exit 1
+fi
+
+echo "Оновлення системи та встановлення необхідних пакетів..."
+pacman -Syu --noconfirm openbabel wget awk sed grep grace tar
+
+echo "Завантаження XYZ файлу..."
+wget -O md_GC5.xyz http://iht.knu.ua/wp-content/uploads/2024/04/md_GC5.xyz
+
+echo "Конвертація XYZ → PDB..."
+obabel -ixyz md_GC5.xyz -opdb -O md_GC5.pdb
+
+echo "Видалення молекул води..."
+grep -v HOH md_GC5.pdb > md_GC5_no_HOH.pdb
+
+echo "Розділення мультиструктурного PDB на окремі..."
+awk '/^MODEL/{n++}{print > sprintf("structure%03d.pdb", n)}' md_GC5_no_HOH.pdb
+
+echo "Завантаження та розпакування X3DNA..."
+wget http://iht.knu.ua/wp-content/uploads/2024/04/x3dna-v2.4-linux-64bit.tar.gz
+tar pzxvf x3dna-v2.4-linux-64bit.tar.gz
+
+echo "Налаштування змінних середовища..."
+export X3DNA="$HOME/x3dna-v2.4"
+export PATH="$X3DNA/bin:$PATH"
+
+echo 'export X3DNA="$HOME/x3dna-v2.4"' >> ~/.bashrc
+echo 'export PATH="$X3DNA/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+echo "Перевірка роботи X3DNA..."
+find_pair -h || { echo "X3DNA не встановлено коректно"; exit 1; }
+
+echo "Завантаження скрипта для аналізу..."
+wget -O script_batch.file http://iht.knu.ua/wp-content/uploads/2024/04/script_batch.file
+chmod +x script_batch.file
+
+echo "Запуск аналізу структури..."
+./script_batch.file
+
+echo "Збір енергій..."
+grep 'E =' structure*.out | sed -n 's/.*E *= *\([-0-9.]*\).*/\1/p' > E_values.txt
+
+echo "Збір гвинтових параметрів..."
+grep -A8 'Local base-pair helical parameters' structure*.out | grep 'ave.' | sed 's/.* \([0-9.-]*\)$/\1/' > helical_parameters.txt
+
+echo "Об’єднання результатів..."
+paste helical_parameters.txt E_values.txt > output.txt
+
+echo "Запуск xmgrace..."
+xmgrace output.txt
