@@ -1,13 +1,6 @@
-#!/bin/bash
-
-# Перевірка root-доступу
-if [[ $EUID -ne 0 ]]; then
-   echo "Запусти цей скрипт з правами root: sudo ./lab3_artix.sh"
-   exit 1
-fi
 
 echo "Оновлення системи та встановлення необхідних пакетів..."
-pacman -Syu --noconfirm openbabel wget awk sed grep grace tar
+apt install openbabel wget sed grep grace tar
 
 echo "Завантаження XYZ файлу..."
 wget -O md_GC5.xyz http://iht.knu.ua/wp-content/uploads/2024/04/md_GC5.xyz
@@ -41,7 +34,7 @@ wget -O script_batch.file http://iht.knu.ua/wp-content/uploads/2024/04/script_ba
 chmod +x script_batch.file
 
 echo "Запуск аналізу структури..."
-./script_batch.file
+./script_batch.file ### you need to change the directory of file to home/mint/etc...
 
 echo "Збір енергій..."
 grep 'E =' structure*.out | sed -n 's/.*E *= *\([-0-9.]*\).*/\1/p' > E_values.txt
